@@ -1,4 +1,4 @@
-package com.xxxx.seckilldemo;
+package com.xxxx.seckill;
 
 
 import org.junit.jupiter.api.Test;
@@ -27,7 +27,7 @@ public class SeckillDemoApplicationTests {
     private RedisScript<Boolean> script;
 
     @Test
-    public void contextLoads(){
+    public void test01(){
         ValueOperations valueOperations = redisTemplate.opsForValue();
         //如果不存在这个key的话，那么就创建成功，如果存在这个key的话，那就创建失败。
         Boolean isLock = valueOperations.setIfAbsent("k1", "v1",5, TimeUnit.SECONDS);
@@ -35,6 +35,7 @@ public class SeckillDemoApplicationTests {
         if(isLock){
             valueOperations.set("name","xxxx");
             String name = (String)valueOperations.get("name");
+
             //操作结束删除锁
             //业务处理完成，要删除这个key
 
@@ -79,7 +80,7 @@ public class SeckillDemoApplicationTests {
         Boolean isLock=valueOperations.setIfAbsent("k1","v1");
         String value= UUID.randomUUID().toString();
         if(isLock){
-            valueOperations.set("name","xxxx");
+            valueOperations.set("name","xxxx",5,TimeUnit.SECONDS);
             String name=(String)valueOperations.get("name");
             System.out.println("name"+name);
             System.out.println(valueOperations.get("k1"));

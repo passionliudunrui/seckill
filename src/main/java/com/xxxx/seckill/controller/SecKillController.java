@@ -16,6 +16,7 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.CollectionUtils;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,9 +49,14 @@ public class SecKillController implements InitializingBean {
     @Autowired
     private MQSender mqSender;
 
+    @Autowired
+    private RedisScript<Long> script;
+
     //在内存中做判断  进行内存的标记  商品id+商品是否有货的boolean值
 
     private Map<Long,Boolean> EmptyStockMap=new HashMap<>();
+
+
 
 
     /**
@@ -168,9 +175,13 @@ public class SecKillController implements InitializingBean {
             return RespBean.error(RespBeanEnum.REPEATE_ERROR);
         }
         //预先减去库存  decrement获取的是递减之后的库存数量
-        Long stock = valueOperations.decrement("seckillGoods:" + goodsId);
+        //Long stock = valueOperations.decrement("seckillGoods:" + goodsId);
         //库存减完了  =0的时候就是还有1件卖出去
         //=-1 就是没抢到
+
+
+        Long stock=(Long)redisTemplate.execute(script, Collections.singletonList("seckillGoods:"+goodsId),Collections.EMPTY_LIST);
+
 
         //通过内存标记 减少Redis的访问
         if(EmptyStockMap.get(goodsId)){

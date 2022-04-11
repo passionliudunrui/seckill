@@ -37,17 +37,29 @@ public class RedisConfig {
      * 使用LUA脚本
      * @return
      */
+//    @Bean
+//    public DefaultRedisScript<Boolean>script(){
+//        DefaultRedisScript<Boolean>redisScript=new DefaultRedisScript<>();
+//
+//        //lock.lua脚本位置和application在同一个目录
+//        redisScript.setLocation(new ClassPathResource("lock.lua"));
+//        redisScript.setResultType(Boolean.class);
+//        return redisScript;
+//    }
+
+    /**
+     * 项目中使用LUA脚本解决库存问题
+     */
     @Bean
-    public DefaultRedisScript<Boolean>script(){
-        DefaultRedisScript<Boolean>redisScript=new DefaultRedisScript<>();
+    public DefaultRedisScript<Long>script(){
+        DefaultRedisScript<Long>redisScript=new DefaultRedisScript<>();
 
         //lock.lua脚本位置和application在同一个目录
-        redisScript.setLocation(new ClassPathResource("lock.lua"));
-        redisScript.setResultType(Boolean.class);
+        redisScript.setLocation(new ClassPathResource("stock.lua"));
+        redisScript.setResultType(Long.class);
         return redisScript;
-
-
     }
+
 
 
 
