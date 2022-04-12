@@ -33,7 +33,13 @@ public enum RespBeanEnum {
     REPEATE_ERROR(500501,"该商品每人限购一件"),
 
     //商品模块 5003xxx
-    ORDER_NOT_EXIST(500300,"订单不存在");
+    ORDER_NOT_EXIST(500300,"订单不存在"),
+
+    //秒杀的路径不对
+    REQUESE_ILLEGAL(500301,"请求非法,请重新尝试"),
+
+    //验证码错误
+    ERROE_CAPTCHA(500302,"验证码错误");
 
 
     private final Integer code;

@@ -13,6 +13,8 @@ import com.xxxx.seckill.service.IGoodsService;
 import com.xxxx.seckill.service.IOrderService;
 import com.xxxx.seckill.service.ISeckillGoodsService;
 import com.xxxx.seckill.service.ISeckillOrderService;
+import com.xxxx.seckill.utils.MD5Util;
+import com.xxxx.seckill.utils.UUIDUtil;
 import com.xxxx.seckill.vo.GoodsVo;
 import com.xxxx.seckill.vo.OrderDetailVo;
 import com.xxxx.seckill.vo.RespBeanEnum;
@@ -21,8 +23,10 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.thymeleaf.util.StringUtils;
 
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>
@@ -123,5 +127,49 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         detail.setGoodsVo(goodsVo);
         return detail;
 
+    }
+
+    /**
+     * 获取秒杀地址  本来是/seckill/doSeckill  现在变成了/seckill/uuid/doSeckill
+     * 保证了每个用户的秒杀地址都不相同
+     * @param user
+     * @param goodsId
+     * @return
+     */
+    @Override
+    public String createPath(User user, Long goodsId) {
+        //接口地址 要存到redis中， 当用户秒杀的时候要做校验
+        //用户发来了请求，然后和redis中的数据做校验
+        String str = MD5Util.md5(UUIDUtil.uuid() + "123456");
+        redisTemplate.opsForValue().set("seckillPath:"+user.getId()+":"+goodsId,str,60, TimeUnit.SECONDS);
+
+        return str;
+    }
+
+    @Override
+    public boolean checkPath(User user, Long goodsId,String path) {
+        if(user==null||goodsId<0|| StringUtils.isEmpty(path)){
+            return false;
+        }
+        String redisPath=(String)redisTemplate.opsForValue().get("seckillPath:"+user.getId()+":"+goodsId);
+        return path.equals(redisPath);
+
+    }
+
+    /**
+     * 校验验证码
+     * @param user
+     * @param goodsId
+     * @param captcha
+     * @return
+     */
+    @Override
+    public boolean checkCaptcha(User user, Long goodsId, String captcha) {
+        if(user==null||StringUtils.isEmpty(captcha)){
+            return false;
+        }
+        String s = (String)redisTemplate.opsForValue().get("captcha:" + user.getId() + ":" + goodsId);
+
+        return captcha.equals(s);
     }
 }

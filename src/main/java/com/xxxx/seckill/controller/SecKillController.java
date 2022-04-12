@@ -1,5 +1,7 @@
 package com.xxxx.seckill.controller;
 
+import com.wf.captcha.ArithmeticCaptcha;
+import com.xxxx.seckill.exception.GlobalException;
 import com.xxxx.seckill.pojo.Order;
 import com.xxxx.seckill.pojo.SeckillOrder;
 import com.xxxx.seckill.pojo.User;
@@ -12,6 +14,7 @@ import com.xxxx.seckill.vo.GoodsVo;
 import com.xxxx.seckill.vo.RespBean;
 import com.xxxx.seckill.vo.RespBeanEnum;
 import com.xxxx.seckill.vo.SeckillMessage;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -20,15 +23,21 @@ import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.CollectionUtils;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
+
+@Slf4j
 @Controller
 @RequestMapping("/seckill")
 public class SecKillController implements InitializingBean {
@@ -52,12 +61,8 @@ public class SecKillController implements InitializingBean {
     @Autowired
     private RedisScript<Long> script;
 
-    //在内存中做判断  进行内存的标记  商品id+商品是否有货的boolean值
-
+    //在内存中做判断  进行内存的标记  (商品id)+(商品是否有货的boolean值)
     private Map<Long,Boolean> EmptyStockMap=new HashMap<>();
-
-
-
 
     /**
      * 功能描述 执行秒杀功能
@@ -160,15 +165,21 @@ public class SecKillController implements InitializingBean {
 
 
 
-    @RequestMapping(value = "/doSeckill",method = RequestMethod.POST)
+    @RequestMapping(value = "/{path}/doSeckill",method = RequestMethod.POST)
     @ResponseBody
-    public RespBean doSecKill( User user, Long goodsId) throws Exception {
+    public RespBean doSecKill(User user, Long goodsId, @PathVariable String path) throws Exception {
         //System.out.println("接收请求");
         if(user==null){
             return RespBean.error(RespBeanEnum.SESSION_ERREO);
         }
 
         ValueOperations valueOperations = redisTemplate.opsForValue();
+        boolean check=orderService.checkPath(user,goodsId,path);
+        if(!check){
+            return RespBean.error(RespBeanEnum.REQUESE_ILLEGAL);
+        }
+
+
         //判断是否重复抢购
         SeckillOrder seckillOrder = (SeckillOrder) redisTemplate.opsForValue().get("order:" + user.getId() + ":" + goodsId);
         if(seckillOrder!=null){
@@ -200,7 +211,7 @@ public class SecKillController implements InitializingBean {
         //正常来说是下单   但是引入了RabbitMQ
         SeckillMessage seckillMessage = new SeckillMessage(user, goodsId);
         mqSender.sendSeckillMessage(JsonUtils.objectToJsonStr(seckillMessage));
-        System.out.println("222222222222");
+
         //客户端得到这个状态的时候 应该前端展示 正在排队中
         return RespBean.success(0);
 
@@ -216,7 +227,7 @@ public class SecKillController implements InitializingBean {
     @ResponseBody
     public RespBean getResult(User user,Long goodsId){
 
-        System.out.println("11111111111");
+
         if(user==null){
             return RespBean.error(RespBeanEnum.SESSION_ERREO);
         }
@@ -243,4 +254,65 @@ public class SecKillController implements InitializingBean {
         }
 
     }
+
+
+    /**
+     * 功能描述：获取秒杀地址
+     * @param user
+     * @param goodsId
+     * @return
+     */
+
+    @RequestMapping(value = "/path",method = RequestMethod.GET)
+    @ResponseBody
+    public RespBean getPath(User user,Long goodsId,String captcha){
+        if(user==null){
+            return RespBean.error(RespBeanEnum.SESSION_ERREO);
+        }
+        /**
+         * 限流算法：使用了计数器  每个用户在一段时间内只能访问固定的次数
+         */
+
+
+
+        boolean check=orderService.checkCaptcha(user,goodsId,captcha);
+        if(!check){
+            return RespBean.error(RespBeanEnum.ERROE_CAPTCHA);
+        }
+        String str=orderService.createPath(user,goodsId);
+        return RespBean.success(str);
+
+    }
+
+
+    @RequestMapping(value="/captcha",method = RequestMethod.GET)
+    public void verifyCode(User user, Long goodsId, HttpServletResponse response){
+        if(user==null||goodsId<0){
+            //请求非法，用户没有输入信息
+            throw new GlobalException(RespBeanEnum.REQUESE_ILLEGAL);
+        }
+        //设置输出为图片类型
+        response.setContentType("image/jpg");
+        //设置验证码不缓存
+        response.setHeader("Pargam","No-cache");
+        response.setHeader("Cache-Control","no-cache");
+        response.setDateHeader("Expires",0);
+
+        ArithmeticCaptcha captcha = new ArithmeticCaptcha(130, 48);
+        //将验证码的数字存放到redis中并且设置超时时间为五分钟
+        redisTemplate.opsForValue().set("captcha:"+user.getId()+":"+goodsId,captcha.text(),300, TimeUnit.SECONDS);
+
+        try {
+            captcha.out(response.getOutputStream());
+        } catch (IOException e) {
+            log.error("验证码生成失败"+e.getMessage());
+        }
+
+
+    }
+
+
+
+
+
 }
