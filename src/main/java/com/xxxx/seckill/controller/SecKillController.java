@@ -1,6 +1,7 @@
 package com.xxxx.seckill.controller;
 
 import com.wf.captcha.ArithmeticCaptcha;
+import com.xxxx.seckill.config.AccessLimit;
 import com.xxxx.seckill.exception.GlobalException;
 import com.xxxx.seckill.pojo.Order;
 import com.xxxx.seckill.pojo.SeckillOrder;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Collections;
@@ -263,17 +265,17 @@ public class SecKillController implements InitializingBean {
      * @return
      */
 
+    @AccessLimit(second=5,maxCount=5,needLogin=true)
     @RequestMapping(value = "/path",method = RequestMethod.GET)
     @ResponseBody
-    public RespBean getPath(User user,Long goodsId,String captcha){
+    public RespBean getPath(User user, Long goodsId, String captcha, HttpServletRequest request){
         if(user==null){
             return RespBean.error(RespBeanEnum.SESSION_ERREO);
         }
         /**
          * 限流算法：使用了计数器  每个用户在一段时间内只能访问固定的次数
+         * 使用注解来解决了这一段代码（拦截器）
          */
-
-
 
         boolean check=orderService.checkCaptcha(user,goodsId,captcha);
         if(!check){

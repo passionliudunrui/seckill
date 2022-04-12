@@ -39,7 +39,10 @@ public enum RespBeanEnum {
     REQUESE_ILLEGAL(500301,"请求非法,请重新尝试"),
 
     //验证码错误
-    ERROE_CAPTCHA(500302,"验证码错误");
+    ERROE_CAPTCHA(500302,"验证码错误"),
+
+    //限流只每分钟每个用户只能请求固定的次数
+    ACCESS_LIMIT_REAHCED(500303,"请求超过固定的次数");
 
 
     private final Integer code;
